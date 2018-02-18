@@ -53,14 +53,14 @@ const struct Element down_element = {
     //Use P4.1
     .inputBits = CAPTIOPOSEL_4 + CAPTIOPISEL_1,
     //set maxResponse and threshold
-    .maxResponse = 7000+1500,
-    .threshold = 2500
+    .maxResponse = 7000+3000,
+    .threshold = 3000
 };
 const struct Element select_element = {
     //Use P4.1
     .inputBits = CAPTIOPOSEL_4 + CAPTIOPISEL_3,
     //set maxResponse and threshold
-    .maxResponse = 7000+1500,
+    .maxResponse = 7000+3000,
     .threshold = 2500
 };
 

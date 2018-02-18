@@ -70,7 +70,11 @@
 #include "structure.h"
 #include "CTS_Layer.h"
 #include "CTS_HAL.h"
-
+#include "ST7735.h"
+#include "clockConfig.h"
+#include "LCD.h"
+#include "sysTick.h"
+/*
 // --- UART Configuration Parameter ---
 const eUSCI_UART_Config uartConfig =
 {
@@ -111,7 +115,7 @@ void UART_init(void){
     MAP_UART_initModule(EUSCI_A0_BASE, &uartConfig);         // Configuring UART Module
     MAP_UART_enableModule(EUSCI_A0_BASE);               // Enable UART module
 }
-
+*/
 uint16_t raw_count[3];
 uint16_t delta_count[3];
 
@@ -119,18 +123,54 @@ uint16_t delta_count[3];
  static volatile RTC_C_Calendar newTime;
 
  /* Time is November 12th 1955 10:03:00 PM */
- const RTC_C_Calendar currentTime =
+RTC_C_Calendar currentTime =
  {
-         0x00,
+         0x01,
          0x03,
-         0x22,
+         0x10,
          0x12,
          0x11,
-         0x1955
+         0x00,
+         0x2018
  };
+
+RTC_C_Calendar newtime;
+
+typedef enum time_set{
+    HOURS = 0,
+    MINUTES,
+    DAY,
+    MONTH
+}time_set_stage;
+
+typedef struct time_step{
+    time_set_stage stage;
+    char *prompt;
+    int increment_mod;
+}time_step;
+
+
+time_set_stage current_Stage = HOURS;
+
+time_step setup_steps[4] = {
+                            {HOURS,  "Hours:  ",12},
+                            {MINUTES,"Minutes:",59},
+                            {DAY,    "Day:    ",31},
+                            {MONTH,  "Month:  ",12}
+};
+
+int SET_TIME = false;
+
+
+uint16_t value = 0;
+int reset_time = 0;
+
 int main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;
+
+    clockStartUp();
+
 
     P2DIR |= BIT0;
     P2OUT &= ~BIT0;
@@ -139,7 +179,7 @@ int main(void)
     P2DIR |= BIT2;
     P2OUT &= ~BIT2;
 
-    UART_init();
+    //UART_init();
 
 
     /* Config RTC */
@@ -156,12 +196,10 @@ int main(void)
     /* Starting LFXT in non-bypass mode without a timeout. */
     CS_startLFXT(false);
 
-    /* Initializing RTC with current time as described in time in
-     * definitions section */
-    MAP_RTC_C_initCalendar(&currentTime, RTC_C_FORMAT_BCD);
+
 
     /* Specify an interrupt to assert every minute */
-    MAP_RTC_C_setCalendarEvent(RTC_C_CALENDAREVENT_MINUTECHANGE);
+   MAP_RTC_C_setCalendarEvent(RTC_C_CALENDAREVENT_MINUTECHANGE);
 
     /* Enable interrupt for RTC Ready Status, which asserts when the RTC
      * Calendar registers are ready to read.
@@ -179,8 +217,15 @@ int main(void)
     //update baseline measurement (average 30 measurements)
     TI_CAPT_Update_Baseline(&my_keys, 30);
 
-    /* Start RTC Clock */
-    MAP_RTC_C_startClock();
+    LCD_init();
+    sysTickInit();
+    ST7735_DrawString2(0,5,"HH:MM",ST7735_YELLOW,ST7735_BLACK);
+    ST7735_DrawString2(100,5,"MM/DD",ST7735_YELLOW,ST7735_BLACK);
+
+    ST7735_DrawString2(30,35,"Clock Init:",ST7735_YELLOW,ST7735_BLACK);
+   // ST7735_DrawString2(30,65,"Hours:",ST7735_YELLOW,ST7735_BLACK);
+
+
 
     /* Enable interrupts and go to sleep. */
     MAP_Interrupt_enableInterrupt(INT_RTC_C);
@@ -193,31 +238,138 @@ int main(void)
         TI_CAPT_Custom(&my_keys, delta_count);
         TI_CAPT_Raw(&my_keys, raw_count);
 
-        //Inquire if a button has been pressed
-        const struct Element *tmp = TI_CAPT_Buttons(&my_keys);
 
-        //Determine if a button has been pressed
-        if(&select_element == tmp)
-        {
-            //Turn on only Red LED
-            P2OUT |= BIT0;
-            P2OUT &= ~BIT2;
-            P2OUT &= ~BIT1;
-        }else if(&down_element == tmp){
-            //Turn on only Blue LED
-            P2OUT |= BIT2;
-            P2OUT &= ~BIT0;
-            P2OUT &= ~BIT1;
-        }else if(&up_element == tmp){
-            //Turn on only Green LED
-            P2OUT |= BIT1;
-            P2OUT &= ~BIT2;
-            P2OUT &= ~BIT0;
-        }else{
-            //Turn all three off
-            P2OUT &= ~BIT1;
-            P2OUT &= ~BIT2;
-            P2OUT &= ~BIT0;
+        char str_val[2];
+        while(!SET_TIME){
+            SysTick_delay(20);
+            //Inquire if a button has been pressed
+            const struct Element *tmp = TI_CAPT_Buttons(&my_keys);
+            sprintf(str_val,"%02.0d",value);
+            ST7735_DrawString2(30,65,setup_steps[current_Stage].prompt,ST7735_YELLOW,ST7735_BLACK);
+            ST7735_DrawString2(50,80,str_val,ST7735_YELLOW,ST7735_BLACK);
+            //Determine if a button has been pressed
+            if(&select_element == tmp)
+            {
+                //Turn on only Red LED
+                P2OUT |= BIT0;
+                P2OUT &= ~BIT2;
+                P2OUT &= ~BIT1;
+
+                //format input of int to BCD
+                uint16_t temp = RTC_C_convertBinaryToBCD(value);
+                //store setting in RTC struct
+                switch(current_Stage){
+                    case HOURS:
+                        currentTime.hours = temp;
+                        current_Stage = MINUTES;
+                        break;
+
+                    case MINUTES:
+                        currentTime.minutes = temp;
+                        current_Stage = DAY;
+                        break;
+
+                    case DAY:
+                        currentTime.dayOfmonth = temp;
+                        current_Stage = MONTH;
+                        break;
+
+                    case MONTH:
+                        currentTime.month = temp;
+                        current_Stage = HOURS;
+                        SET_TIME=1;//break loop
+                        break;
+                }
+                SysTick_delay(1);
+
+                value = 0;
+                SysTick_delay(100);
+                while(TI_CAPT_Buttons(&my_keys) == &select_element){
+                                    ;
+                                }
+            }else if(&down_element == tmp){
+                //Turn on only Blue LED
+                P2OUT |= BIT2;
+                P2OUT &= ~BIT0;
+                P2OUT &= ~BIT1;
+
+                SysTick_delay(1);
+
+                if(value==0){
+                    //if positive, decrement is allowed
+                    value = setup_steps[current_Stage].increment_mod;
+
+                }else{
+                    value--;
+                }
+                //SysTick_delay(100);
+
+                while(TI_CAPT_Buttons(&my_keys) == &down_element){
+                    ;
+                }
+
+            }else if(&up_element == tmp){
+                //Turn on only Green LED
+                P2OUT |= BIT1;
+                P2OUT &= ~BIT2;
+                P2OUT &= ~BIT0;
+
+                SysTick_delay(1);
+                value = (value + 1) % setup_steps[current_Stage].increment_mod;
+
+                //SysTick_delay(100);
+
+                while(TI_CAPT_Buttons(&my_keys) == &up_element){
+                    ;
+                }
+            }else{
+                //Turn all three off
+                P2OUT &= ~BIT1;
+                P2OUT &= ~BIT2;
+                P2OUT &= ~BIT0;
+                SysTick_delay(100);
+            }
+        }
+
+        if(SET_TIME){
+            SET_TIME=false;
+            /* Initializing RTC with current time as described in time in
+             * definitions section */
+            MAP_RTC_C_initCalendar(&currentTime, RTC_C_FORMAT_BCD);
+
+            /* Start RTC Clock */
+                MAP_RTC_C_startClock();
+
+           Output_Clear();
+           create_data_display();
+           updateDataDisplay();
+           updateTimeDisplay(&currentTime);
+                while(1)
+                    if(reset_time){
+                        reset_time = 0;
+                        newtime = MAP_RTC_C_getCalendarTime();
+                        updateTimeDisplay(&newtime);
+                    }
         }
     }
 }
+
+/* RTC ISR */
+void RTC_C_IRQHandler(void)
+{
+    uint32_t status;
+
+    status = MAP_RTC_C_getEnabledInterruptStatus();
+    MAP_RTC_C_clearInterruptFlag(status);
+
+    if (status & RTC_C_CLOCK_READ_READY_INTERRUPT)
+    {
+        ;
+    }
+    if (status & RTC_C_TIME_EVENT_INTERRUPT)
+    {
+        /* Interrupts every minute - Set breakpoint here */
+        reset_time = 1;
+    }
+}
+

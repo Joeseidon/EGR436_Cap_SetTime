@@ -12,9 +12,13 @@ GEN_CMDS__FLAG :=
 ORDERED_OBJS += \
 "./CTS_HAL.obj" \
 "./CTS_Layer.obj" \
+"./LCD.obj" \
+"./ST7735.obj" \
+"./clockConfig.obj" \
 "./main.obj" \
 "./startup_msp432p401r_ccs.obj" \
 "./structure.obj" \
+"./sysTick.obj" \
 "./system_msp432p401r.obj" \
 "../driverlib_empty_project_ccs.cmd" \
 "C:/ti/msp/MSP432Ware_3_50_00_02/driverlib/driverlib/MSP432P4xx/ccs/msp432p4xx_driverlib.lib" \
@@ -162,8 +166,8 @@ Cap_SetTime.bin: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "CTS_HAL.obj" "CTS_Layer.obj" "main.obj" "startup_msp432p401r_ccs.obj" "structure.obj" "system_msp432p401r.obj" 
-	-$(RM) "CTS_HAL.d" "CTS_Layer.d" "main.d" "startup_msp432p401r_ccs.d" "structure.d" "system_msp432p401r.d" 
+	-$(RM) "CTS_HAL.obj" "CTS_Layer.obj" "LCD.obj" "ST7735.obj" "clockConfig.obj" "main.obj" "startup_msp432p401r_ccs.obj" "structure.obj" "sysTick.obj" "system_msp432p401r.obj" 
+	-$(RM) "CTS_HAL.d" "CTS_Layer.d" "LCD.d" "ST7735.d" "clockConfig.d" "main.d" "startup_msp432p401r_ccs.d" "structure.d" "sysTick.d" "system_msp432p401r.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

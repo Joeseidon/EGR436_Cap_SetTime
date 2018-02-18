@@ -48,6 +48,10 @@ main.obj: C:/ti/ccsv7/tools/compiler/ti-cgt-arm_16.9.6.LTS/include/stdarg.h
 main.obj: ../structure.h
 main.obj: ../CTS_Layer.h
 main.obj: ../CTS_HAL.h
+main.obj: ../ST7735.h
+main.obj: ../clockConfig.h
+main.obj: ../LCD.h
+main.obj: ../sysTick.h
 
 ../main.c: 
 C:/ti/msp/MSP432Ware_3_50_00_02/driverlib/driverlib/MSP432P4xx/driverlib.h: 
@@ -97,3 +101,7 @@ C:/ti/ccsv7/tools/compiler/ti-cgt-arm_16.9.6.LTS/include/stdarg.h:
 ../structure.h: 
 ../CTS_Layer.h: 
 ../CTS_HAL.h: 
+../ST7735.h: 
+../clockConfig.h: 
+../LCD.h: 
+../sysTick.h: 
